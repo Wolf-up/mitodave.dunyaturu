@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>GAZ DAVE</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; }
+
+  body {
+    background: #0a0a1a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    overflow: hidden;
+    font-family: 'Press Start 2P', monospace;
+  }
+
+  #gameWrapper {
+    position: relative;
+    width: 100%;
+    max-width: 900px;
+  }
+
+  #hud {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: #0d0d1f;
+    border-bottom: 2px solid #333;
+    font-size: 9px;
+    color: #fff;
+  }
+
+  #hud span { color: #ffd700; }
+
+  #gasBar {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    font-size: 8px;
+  }
+
+  .gasIndicator {
+    width: 16px; height: 16px;
+    border-radius: 3px;
+    border: 2px solid rgba(255,255,255,0.3);
+    cursor: pointer;
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    background: #111122;
+    image-rendering: pixelated;
+  }
+
+  #controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    background: #0d0d1f;
+    border-top: 2px solid #333;
+    gap: 8px;
+  }
+
+  .dpad {
+    display: grid;
+    grid-template-columns: repeat(3, 44px);
+    grid-template-rows: repeat(2, 44px);
+    gap: 3px;
+  }
+
+  .btn {
+    background: #1a1a3a;
+    border: 2px solid #444;
+    border-radius: 8px;
+    color: #fff;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: background 0.1s, transform 0.05s;
+    width: 44px; height: 44px;
+  }
+
+  .btn:active, .btn.pressed {
+    background: #3a3a6a;
+    transform: scale(0.93);
+    border-color: #888;
+  }
+
+  .btn.left  { grid-column:1; grid-row:1; }
+  .btn.right { grid-column:3; grid-row:1; }
+  .btn.up    { grid-column:2; grid-row:1; }
+  .btn.down  { grid-column:2; grid-row:2; }
+
+  #actionBtns {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-end;
+  }
+
+  #gasButtons {
+    display: flex;
+    gap: 5px;
+  }
+
+  .gasBtn {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: 3px solid rgba(255,255,255,0.4);
+    font-size: 8px;
+    cursor: pointer;
+    font-family: 'Press Start 2P', monospace;
+    color: #fff;
+    text-shadow: 0 0 4px #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+  }
+
+  .jumpBtn {
+    width: 56px; height: 56px;
+    background: radial-gradient(circle, #5566ff, #2233cc);
+    border-radius: 50%;
+    border: 3px solid #8899ff;
+    font-size: 9px;
+    color: #fff;
+    cursor: pointer;
+    font-family: 'Press Start 2P', monospace;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+  }
+
+  #message {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.85);
+    color: #fff;
+    padding: 20px 28px;
+    border-radius: 12px;
+    font-size: 11px;
+    text-align: center;
+    line-height: 2;
+    border: 2px solid #ffd700;
+    display: none;
+    z-index: 10;
+  }
+
+  #message button {
+    margin-top: 14px;
+    padding: 10px 20px;
+    background: #ffd700;
+    border: none;
+    border-radius: 6px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    cursor: pointer;
+    color: #000;
+    display: block;
+    width: 100%;
+  }
+
+  #activeGas {
+    font-size: 7px;
+    color: #aaa;
+    text-align: center;
+    margin-top: 2px;
+  }
+</style>
+</head>
+<body>
+
+<div id="gameWrapper">
+  <div id="hud">
+    <div>SKOR: <span id="scoreDisplay">0</span></div>
+    <div>❤️ <span id="livesDisplay">3</span></div>
+    <div>SEVİYE: <span id="levelDisplay">1</span></div>
+    <div id="gasBar">
+      GAZ: 
+      <div class="gasIndicator" id="gi0" style="background:#ff4444;" title="Ateş Gazı" onclick="selectGas(0)"></div>
+      <div class="gasIndicator" id="gi1" style="background:#44ff88;" title="Zehir Gazı" onclick="selectGas(1)"></div>
+      <div class="gasIndicator" id="gi2" style="background:#4488ff;" title="Buz Gazı" onclick="selectGas(2)"></div>
+      <div class="gasIndicator" id="gi3" style="background:#ffaa00;" title="Elektrik Gazı" onclick="selectGas(3)"></div>
+    </div>
+  </div>
+
+  <canvas id="gameCanvas" width="900" height="380"></canvas>
+
+  <div id="controls">
+    <div class="dpad">
+      <div class="btn left" id="btnLeft">◀</div>
+      <div class="btn up"   id="btnUp">▲</div>
+      <div class="btn right"id="btnRight">▶</div>
+      <div class="btn down" id="btnDown">▼</div>
+    </div>
+
+    <div id="actionBtns">
+      <div id="gasButtons">
+        <div class="gasBtn" id="gbtn0" style="background:radial-gradient(circle,#ff6655,#aa1100);" onclick="selectGas(0)">🔥</div>
+        <div class="gasBtn" id="gbtn1" style="background:radial-gradient(circle,#55ff99,#007733);" onclick="selectGas(1)">☣️</div>
+        <div class="gasBtn" id="gbtn2" style="background:radial-gradient(circle,#55aaff,#0033aa);" onclick="selectGas(2)">❄️</div>
+        <div class="gasBtn" id="gbtn3" style="background:radial-gradient(circle,#ffcc00,#aa6600);" onclick="selectGas(3)">⚡</div>
+      </div>
+      <div id="activeGas">Ateş Gazı ▶ ATEŞ</div>
+      <div class="jumpBtn" id="btnFire">ATEŞ</div>
+    </div>
+  </div>
+
+  <div id="message">
+    <div id="messageText"></div>
+    <button onclick="restartGame()">TEKRAR OYNA</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// ─── OYUN DEĞİŞKENLERİ ───
+let score = 0, lives = 3, level = 1;
+let gameRunning = true;
+let animFrame;
+
+const GAS_TYPES = [
+  { name:'Ateş Gazı',    color:'#ff4400', glow:'#ff8800', emoji:'🔥', effect:'burn',    speed:9,  size:7  },
+  { name:'Zehir Gazı',   color:'#44ff88', glow:'#00ff44', emoji:'☣️', effect:'poison',  speed:7,  size:9  },
+  { name:'Buz Gazı',     color:'#4488ff', glow:'#88ccff', emoji:'❄️', effect:'freeze',  speed:8,  size:8  },
+  { name:'Elektrik Gazı',color:'#ffcc00', glow:'#ffffff', emoji:'⚡', effect:'shock',   speed:11, size:6  },
+];
+let currentGas = 0;
+
+// ─── PLATFORM VERİLERİ ───
+function levelPlatforms(lvl) {
+  const base = [
+    { x:0,   y:340, w:900, h:40, color:'#334' },  // zemin
+    { x:50,  y:270, w:130, h:14, color:'#446' },
+    { x:230, y:230, w:110, h:14, color:'#464' },
+    { x:390, y:200, w:100, h:14, color:'#644' },
+    { x:540, y:240, w:120, h:14, color:'#446' },
+    { x:700, y:180, w:130, h:14, color:'#464' },
+    { x:160, y:170, w:90,  h:14, color:'#646' },
+    { x:440, y:130, w:80,  h:14, color:'#664' },
+    { x:600, y:100, w:110, h:14, color:'#466' },
+  ];
+  return base;
+}
+
+// ─── OYUNCU ───
+let player = {
+  x:60, y:280, w:26, h:32,
+  vx:0, vy:0,
+  onGround:false,
+  facing:1,
+  animFrame:0,
+  animTimer:0,
+  invincible:0,
+  shooting:false
+};
+
+// ─── MERMİLER ───
+let bullets = [];
+
+// ─── DÜŞMANLAR ───
+let enemies = [];
+let particles = [];
+let collectibles = [];
+let camera = { x:0 };
+
+function spawnEnemies() {
+  enemies = [];
+  const count = 3 + level * 2;
+  const xs = [200,380,520,680,820,150,440,750,310,600];
+  for (let i = 0; i < Math.min(count, xs.length); i++) {
+    enemies.push({
+      x: xs[i], y: 200,
+      w: 24, h: 28,
+      vx: (Math.random()>0.5?1:-1)*(1+level*0.3),
+      vy: 0,
+      onGround: false,
+      hp: 1 + Math.floor(level/3),
+      maxHp: 1 + Math.floor(level/3),
+      frozen: 0,
+      poisoned: 0,
+      type: i % 3,
+      animT: 0
+    });
+  }
+}
+
+function spawnCollectibles() {
+  collectibles = [];
+  const positions = [[120,255],[300,215],[460,185],[620,225],[780,165],[200,155],[480,115],[650,85]];
+  const count = 4 + level;
+  for (let i = 0; i < Math.min(count, positions.length); i++) {
+    collectibles.push({
+      x: positions[i][0], y: positions[i][1],
+      w:18, h:18, collected:false,
+      type: Math.floor(Math.random()*3), // 0=coin,1=gem,2=star
+      bob: Math.random()*Math.PI*2
+    });
+  }
+}
+
+let platforms;
+
+function initLevel() {
+  platforms = levelPlatforms(level);
+  player.x = 60; player.y = 280;
+  player.vx = 0; player.vy = 0;
+  bullets = [];
+  particles = [];
+  spawnEnemies();
+  spawnCollectibles();
+  camera.x = 0;
+}
+
+// ─── INPUT ───
+const keys = {};
+const touches = {};
+
+document.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code === 'Space') { e.preventDefault(); fireBullet(); }
+  if (e.code === 'ArrowUp' || e.code === 'KeyW') { e.preventDefault(); jump(); }
+  if (e.code === 'Digit1') selectGas(0);
+  if (e.code === 'Digit2') selectGas(1);
+  if (e.code === 'Digit3') selectGas(2);
+  if (e.code === 'Digit4') selectGas(3);
+});
+document.addEventListener('keyup', e => { keys[e.code] = false; });
+
+function setupBtn(id, action) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('touchstart', e => { e.preventDefault(); touches[id]=true; el.classList.add('pressed'); action && action('down'); }, {passive:false});
+  el.addEventListener('touchend',   e => { e.preventDefault(); touches[id]=false; el.classList.remove('pressed'); action && action('up'); }, {passive:false});
+  el.addEventListener('mousedown',  e => { touches[id]=true; el.classList.add('pressed'); action && action('down'); });
+  el.addEventListener('mouseup',    e => { touches[id]=false; el.classList.remove('pressed'); action && action('up'); });
+}
+
+setupBtn('btnLeft');
+setupBtn('btnRight');
+setupBtn('btnUp',   (state) => { if(state==='down') jump(); });
+setupBtn('btnFire', (state) => { if(state==='down') fireBullet(); });
+setupBtn('btnDown');
+
+function isLeft()  { return keys['ArrowLeft']  || keys['KeyA'] || touches['btnLeft']; }
+function isRight() { return keys['ArrowRight'] || keys['KeyD'] || touches['btnRight']; }
+
+function jump() {
+  if (player.onGround) {
+    player.vy = -13;
+    player.onGround = false;
+    spawnParticle(player.x+13, player.y+32, '#8888ff', 6, 'jump');
+  }
+}
+
+function fireBullet() {
+  const g = GAS_TYPES[currentGas];
+  const dir = player.facing;
+  bullets.push({
+    x: player.x + (dir>0?26:0),
+    y: player.y + 14,
+    vx: g.speed * dir,
+    vy: 0,
+    color: g.color,
+    glow: g.glow,
+    effect: g.effect,
+    r: g.size,
+    life: 60,
+    trail: []
+  });
+  spawnParticle(player.x+13, player.y+14, g.color, 5, 'shoot');
+}
+
+function selectGas(i) {
+  currentGas = i;
+  const g = GAS_TYPES[i];
+  document.getElementById('activeGas').textContent = g.name + ' ▶ ATEŞ';
+  document.getElementById('btnFire').textContent = 'ATEŞ';
+  // highlight selected
+  [0,1,2,3].forEach(j => {
+    document.getElementById('gi'+j).style.outline = j===i ? '3px solid #fff' : 'none';
+  });
+}
+
+// ─── PARTİKÜLLER ───
+function spawnParticle(x, y, color, count, type) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random()*Math.PI*2;
+    const speed = 1 + Math.random()*3;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle)*speed,
+      vy: Math.sin(angle)*speed - (type==='jump'?2:0),
+      color,
+      life: 20 + Math.random()*20,
+      maxLife: 40,
+      r: 2 + Math.random()*3,
+      type
+    });
+  }
+}
+
+// ─── ÇARPIŞMA ───
+function rectCollide(a, b) {
+  return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+}
+
+function resolvePlayer() {
+  player.onGround = false;
+  for (const p of platforms) {
+    if (rectCollide(player, p)) {
+      const overlapX = Math.min(player.x+player.w, p.x+p.w) - Math.max(player.x, p.x);
+      const overlapY = Math.min(player.y+player.h, p.y+p.h) - Math.max(player.y, p.y);
+      if (overlapY < overlapX) {
+        if (player.y + player.h/2 < p.y + p.h/2) {
+          player.y = p.y - player.h;
+          player.vy = 0;
+          player.onGround = true;
+        } else {
+          player.y = p.y + p.h;
+          player.vy = 0;
+        }
+      } else {
+        if (player.x + player.w/2 < p.x + p.w/2) player.x = p.x - player.w;
+        else player.x = p.x + p.w;
+        player.vx = 0;
+      }
+    }
+  }
+}
+
+function resolveEnemy(en) {
+  en.onGround = false;
+  for (const p of platforms) {
+    if (rectCollide(en, p)) {
+      const overlapX = Math.min(en.x+en.w, p.x+p.w) - Math.max(en.x, p.x);
+      const overlapY = Math.min(en.y+en.h, p.y+p.h) - Math.max(en.y, p.y);
+      if (overlapY < overlapX) {
+        if (en.y + en.h/2 < p.y + p.h/2) {
+          en.y = p.y - en.h;
+          en.vy = 0;
+          en.onGround = true;
+        } else {
+          en.y = p.y + p.h;
+          en.vy = 0;
+        }
+      } else {
+        en.vx *= -1;
+        if (en.x + en.w/2 < p.x + p.w/2) en.x = p.x - en.w;
+        else en.x = p.x + p.w;
+      }
+    }
+  }
+}
+
+// ─── UPDATE ───
+function update() {
+  if (!gameRunning) return;
+
+  // Player movement
+  const spd = 4;
+  if (isLeft())  { player.vx = -spd; player.facing = -1; }
+  else if (isRight()) { player.vx = spd; player.facing = 1; }
+  else player.vx *= 0.7;
+
+  player.vy += 0.55; // gravity
+  player.x += player.vx;
+  player.y += player.vy;
+
+  // Bounds
+  if (player.x < 0) player.x = 0;
+  if (player.x > 870) player.x = 870;
+  if (player.y > 420) { loseLife(); return; }
+
+  resolvePlayer();
+
+  if (player.invincible > 0) player.invincible--;
+
+  // Animation
+  player.animTimer++;
+  if (player.animTimer > 8) { player.animFrame = (player.animFrame+1)%4; player.animTimer=0; }
+
+  // Bullets
+  bullets.forEach(b => {
+    b.trail.push({x:b.x, y:b.y});
+    if (b.trail.length > 8) b.trail.shift();
+    b.x += b.vx;
+    b.y += b.vy;
+    if (b.effect === 'burn') b.vy += 0.05;
+    b.life--;
+    // Platform collision
+    for (const p of platforms) {
+      if (b.x > p.x && b.x < p.x+p.w && b.y > p.y && b.y < p.y+p.h) {
+        b.life = 0;
+        spawnParticle(b.x, b.y, b.color, 8, 'hit');
+      }
+    }
+  });
+  bullets = bullets.filter(b => b.life > 0 && b.x > -50 && b.x < 950);
+
+  // Enemies
+  enemies.forEach(en => {
+    if (en.frozen > 0) { en.frozen--; return; }
+    if (en.poisoned > 0) { en.poisoned--; en.hp -= 0.02; }
+
+    en.vy += 0.55;
+    en.x += en.vx;
+    en.y += en.vy;
+    resolveEnemy(en);
+
+    if (en.x < 0 || en.x > 870) en.vx *= -1;
+
+    // Enemy-bullet collision
+    bullets.forEach(b => {
+      if (Math.abs(b.x - en.x - en.w/2) < en.w/2+b.r && Math.abs(b.y - en.y - en.h/2) < en.h/2+b.r) {
+        b.life = 0;
+        spawnParticle(b.x, b.y, b.color, 12, 'hit');
+        if (b.effect === 'freeze') en.frozen = 120;
+        else if (b.effect === 'poison') en.poisoned = 180;
+        else if (b.effect === 'shock') { en.vx *= -3; en.vy = -8; }
+        en.hp--;
+        if (en.hp <= 0) {
+          spawnParticle(en.x+12, en.y+14, b.color, 20, 'death');
+          score += 100 * level;
+          en.dead = true;
+        }
+      }
+    });
+
+    // Enemy-player collision
+    if (player.invincible === 0 && rectCollide(player, en)) {
+      loseLife();
+    }
+
+    en.animT++;
+  });
+  enemies = enemies.filter(e => !e.dead && e.hp > 0);
+
+  // Collectibles
+  collectibles.forEach(c => {
+    c.bob += 0.05;
+    if (!c.collected && rectCollide(player, c)) {
+      c.collected = true;
+      score += c.type===2 ? 500 : c.type===1 ? 300 : 100;
+      spawnParticle(c.x+9, c.y+9, c.type===2?'#ffff00':c.type===1?'#cc44ff':'#ffd700', 10, 'collect');
+    }
+  });
+  collectibles = collectibles.filter(c => !c.collected);
+
+  // Particles
+  particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.life--; });
+  particles = particles.filter(p => p.life > 0);
+
+  // Level complete?
+  if (enemies.length === 0 && collectibles.length === 0) {
+    level++;
+    if (level > 5) {
+      showMessage('🎉 TEBRİKLER! TÜM SEVİYELERİ BİTİRDİN!\nSKOR: ' + score);
+    } else {
+      showMessage('🌟 SEVİYE ' + level + '! HAZIRSANIZ...\nSKOR: ' + score);
+      setTimeout(() => { document.getElementById('message').style.display='none'; initLevel(); }, 2000);
+      document.querySelector('#message button').style.display='none';
+    }
+    gameRunning = false;
+  }
+
+  // Update HUD
+  document.getElementById('scoreDisplay').textContent = score;
+  document.getElementById('livesDisplay').textContent = lives;
+  document.getElementById('levelDisplay').textContent = level;
+}
+
+function loseLife() {
+  lives--;
+  spawnParticle(player.x+13, player.y+16, '#ff0000', 20, 'death');
+  player.invincible = 90;
+  player.x = 60; player.y = 280;
+  player.vx = 0; player.vy = 0;
+  if (lives <= 0) {
+    showMessage('💀 OYUN BİTTİ\nSKOR: ' + score);
+    gameRunning = false;
+  }
+}
+
+function showMessage(text) {
+  const m = document.getElementById('message');
+  document.getElementById('messageText').innerHTML = text.replace(/\n/g,'<br>');
+  m.style.display = 'block';
+  const btn = m.querySelector('button');
+  btn.style.display = '';
+}
+
+function restartGame() {
+  score = 0; lives = 3; level = 1;
+  document.getElementById('message').style.display = 'none';
+  gameRunning = true;
+  initLevel();
+}
+
+// ─── DRAW ───
+const ENEMY_COLORS = ['#cc3333','#3388cc','#cc9900'];
+
+function drawPixelPlayer(x, y, facing, frame, invincible) {
+  if (invincible > 0 && Math.floor(invincible/5)%2===0) return;
+
+  ctx.save();
+  ctx.translate(x + 13, y + 16);
+  if (facing < 0) ctx.scale(-1,1);
+
+  // Body
+  ctx.fillStyle = '#4488ff';
+  ctx.fillRect(-8, -4, 16, 16);
+
+  // Head
+  ctx.fillStyle = '#ffcc88';
+  ctx.fillRect(-6, -16, 12, 12);
+
+  // Eyes
+  ctx.fillStyle = '#000';
+  ctx.fillRect(1, -13, 3, 3);
+
+  // Hat
+  ctx.fillStyle = '#ff4444';
+  ctx.fillRect(-7, -20, 14, 5);
+  ctx.fillRect(-4, -24, 8, 5);
+
+  // Legs animation
+  const legOffsets = [[0,0],[2,-1],[0,0],[-2,-1]];
+  const lo = legOffsets[frame % 4];
+  ctx.fillStyle = '#2233aa';
+  ctx.fillRect(-7, 12, 6, 10 + lo[0]);
+  ctx.fillRect(1, 12, 6, 10 + lo[1]);
+
+  // Gas tank on back
+  ctx.fillStyle = GAS_TYPES[currentGas].color;
+  ctx.fillRect(7, -2, 5, 10);
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(8, -1, 3, 3);
+
+  ctx.restore();
+}
+
+function drawEnemy(en) {
+  if (en.frozen > 0) {
+    ctx.fillStyle = 'rgba(100,180,255,0.4)';
+    ctx.fillRect(en.x-3, en.y-3, en.w+6, en.h+6);
+  }
+  
+  ctx.save();
+  ctx.translate(en.x + en.w/2, en.y + en.h/2);
+  if (en.vx > 0) ctx.scale(-1,1);
+
+  const ec = ENEMY_COLORS[en.type];
+  // Body
+  ctx.fillStyle = en.poisoned>0 ? '#55ff88' : ec;
+  ctx.fillRect(-11, -10, 22, 18);
+  // Head
+  ctx.fillStyle = en.poisoned>0 ? '#33cc66' : ec;
+  ctx.fillRect(-9, -22, 18, 14);
+  // Eyes
+  ctx.fillStyle = '#ff0';
+  ctx.fillRect(-5, -19, 4, 4);
+  ctx.fillRect(1, -19, 4, 4);
+  // Pupils
+  ctx.fillStyle = '#000';
+  ctx.fillRect(-4, -18, 2, 2);
+  ctx.fillRect(2, -18, 2, 2);
+  // Teeth
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(-6, -11, 4, 3);
+  ctx.fillRect(-1, -11, 4, 3);
+  ctx.fillRect(4, -11, 4, 3);
+  // HP bar
+  const bw = 24;
+  ctx.fillStyle = '#333';
+  ctx.fillRect(-bw/2, -28, bw, 4);
+  ctx.fillStyle = en.hp/en.maxHp > 0.5 ? '#44ff44' : '#ff4444';
+  ctx.fillRect(-bw/2, -28, bw * (en.hp/en.maxHp), 4);
+
+  ctx.restore();
+}
+
+function drawBullet(b) {
+  // Trail
+  b.trail.forEach((t, i) => {
+    const alpha = (i/b.trail.length) * 0.5;
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, b.r * (i/b.trail.length), 0, Math.PI*2);
+    ctx.fillStyle = b.color + Math.floor(alpha*255).toString(16).padStart(2,'0');
+    ctx.fill();
+  });
+  // Core
+  ctx.save();
+  ctx.shadowColor = b.glow;
+  ctx.shadowBlur = 14;
+  ctx.beginPath();
+  ctx.arc(b.x, b.y, b.r, 0, Math.PI*2);
+  ctx.fillStyle = b.color;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(b.x, b.y, b.r*0.5, 0, Math.PI*2);
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawCollectible(c) {
+  const bobY = Math.sin(c.bob) * 4;
+  ctx.save();
+  ctx.translate(c.x+9, c.y+9+bobY);
+  if (c.type === 0) { // coin
+    ctx.fillStyle = '#ffd700';
+    ctx.shadowColor = '#ffd700';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(0, 0, 8, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = '#ffaa00';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('$', 0, 4);
+  } else if (c.type === 1) { // gem
+    ctx.fillStyle = '#cc44ff';
+    ctx.shadowColor = '#cc44ff';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.moveTo(0,-9); ctx.lineTo(8,0); ctx.lineTo(0,9); ctx.lineTo(-8,0);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.globalAlpha = 0.4;
+    ctx.beginPath();
+    ctx.moveTo(0,-9); ctx.lineTo(8,0); ctx.lineTo(0,0); ctx.closePath(); ctx.fill();
+  } else { // star
+    ctx.fillStyle = '#ffff00';
+    ctx.shadowColor = '#ffff44';
+    ctx.shadowBlur = 12;
+    drawStar(ctx, 0, 0, 5, 9, 5);
+  }
+  ctx.restore();
+}
+
+function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius) {
+  let rot = Math.PI/2*3, step = Math.PI/spikes;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - outerRadius);
+  for (let i=0; i<spikes; i++) {
+    ctx.lineTo(cx + Math.cos(rot)*outerRadius, cy + Math.sin(rot)*outerRadius);
+    rot += step;
+    ctx.lineTo(cx + Math.cos(rot)*innerRadius, cy + Math.sin(rot)*innerRadius);
+    rot += step;
+  }
+  ctx.lineTo(cx, cy - outerRadius);
+  ctx.closePath(); ctx.fill();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, 900, 380);
+
+  // Background gradient
+  const bg = ctx.createLinearGradient(0,0,0,380);
+  bg.addColorStop(0, '#0a0a2a');
+  bg.addColorStop(1, '#1a1030');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0,0,900,380);
+
+  // Stars
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  for (let i=0; i<40; i++) {
+    const sx = (i*137.5+level*20)%900;
+    const sy = (i*83.7)%200;
+    ctx.fillRect(sx, sy, 1+(i%2), 1+(i%2));
+  }
+
+  // Platforms
+  platforms.forEach(p => {
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillRect(p.x+4, p.y+4, p.w, p.h);
+    // Main
+    const pg = ctx.createLinearGradient(p.x, p.y, p.x, p.y+p.h);
+    pg.addColorStop(0, p.color+'cc');
+    pg.addColorStop(1, '#111122');
+    ctx.fillStyle = pg;
+    ctx.fillRect(p.x, p.y, p.w, p.h);
+    // Top highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    ctx.fillRect(p.x, p.y, p.w, 3);
+    // Pixel pattern
+    ctx.fillStyle = 'rgba(255,255,255,0.04)';
+    for (let gx=p.x; gx<p.x+p.w; gx+=16) {
+      ctx.fillRect(gx, p.y, 1, p.h);
+    }
+  });
+
+  // Collectibles
+  collectibles.forEach(drawCollectible);
+
+  // Enemies
+  enemies.forEach(drawEnemy);
+
+  // Bullets
+  bullets.forEach(drawBullet);
+
+  // Player
+  drawPixelPlayer(player.x, player.y, player.facing, player.animFrame, player.invincible);
+
+  // Particles
+  particles.forEach(p => {
+    const alpha = p.life / p.maxLife;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = p.color;
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r * alpha, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  });
+
+  // Gas type indicator (corner)
+  const g = GAS_TYPES[currentGas];
+  ctx.save();
+  ctx.fillStyle = g.color + 'aa';
+  ctx.shadowColor = g.glow;
+  ctx.shadowBlur = 20;
+  ctx.fillRect(8, 8, 28, 28);
+  ctx.shadowBlur = 0;
+  ctx.font = '18px serif';
+  ctx.fillText(g.emoji, 9, 28);
+  ctx.restore();
+
+  // Remaining enemies indicator
+  ctx.fillStyle = '#fff';
+  ctx.font = '8px "Press Start 2P"';
+  ctx.fillText('DÜŞMAN: ' + enemies.length, 10, 55);
+  ctx.fillText('EŞYA: ' + collectibles.length, 10, 68);
+}
+
+function loop() {
+  update();
+  draw();
+  animFrame = requestAnimationFrame(loop);
+}
+
+// ─── BAŞLAT ───
+selectGas(0);
+initLevel();
+loop();
+</script>
+</body>
+</html>
